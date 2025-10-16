@@ -1,6 +1,8 @@
 ChatGPT Link: https://chatgpt.com/share/68f15a22-84d8-800c-b512-7bfef8e1825c
 
-I am currently trying to squeeze ChatGPT in to transcribing the entire U.S. Constitution because it said it would - I currently can only get it to 5/5 of the Preamble in the viewer.
+ChatGPT Canvas Link - https://chatgpt.com/canvas/shared/68f16102d53481919e74e09bd9f5ebe1
+
+Offline version with embedded Constitution from U.S. Senate and Cornell L.I.I. per ChatGPT recommendation for modernized labeling and punctuation.
 
 ---
 
