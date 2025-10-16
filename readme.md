@@ -1,6 +1,6 @@
 ChatGPT Link: https://chatgpt.com/share/68f15a22-84d8-800c-b512-7bfef8e1825c
 
-I am currently trying to squeeze ChatGPT in to transcribing the entire U.S. Constitution because it said it would - I currently can only get it to 5/5 of the Preamble.
+I am currently trying to squeeze ChatGPT in to transcribing the entire U.S. Constitution because it said it would - I currently can only get it to 5/5 of the Preamble in the viewer.
 
 ---
 
