@@ -1,0 +1,682 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Constitution Navigator (Offline)</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --ink:#111111;
+      --ink-muted:#333;
+      --accent:#6ab6e6; /* light blue like your sketch */
+      --accent-2:#2e86c1;
+      --panel:#f7fbff;
+      --radius:22px;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background:var(--bg); color:var(--ink);
+      display:flex; flex-direction:column;
+    }
+    header{
+      background:var(--accent);
+      color:#00324f; font-weight:700; letter-spacing:.2px;
+      padding:.75rem 1rem; position:sticky; top:0; z-index:5;
+      display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;
+      box-shadow:0 2px 10px rgba(0,0,0,.06);
+    }
+    header .title{flex:1; text-align:center}
+    header button, header label[role="button"]{
+      background:#e9f4fd; border:1px solid #b9ddf5; color:#0c3b59;
+      padding:.45rem .7rem; border-radius:10px; cursor:pointer;
+      font-weight:600;
+    }
+    header button:hover, header label[role="button"]:hover{background:#dff0fc}
+    header input[type="file"]{display:none}
+
+    .wrap{max-width:1100px; width:100%; margin:0 auto; padding:1rem; flex:1; display:flex; flex-direction:column; gap:1rem}
+
+    .panel{
+      background:var(--panel); border:2px solid var(--accent);
+      border-radius:calc(var(--radius) + 6px);
+      padding:1rem 1rem 1.2rem; position:relative;
+    }
+    .search-bar{ display:flex; justify-content:center; margin-top:-.5rem;}
+    .search-bar input{
+      width:min(560px, 90%); padding:.7rem 1rem; border-radius:12px;
+      border:2px solid var(--accent); background:#e3f1fb; font-size:1rem;
+    }
+    .search-results{
+      position:absolute; left:50%; transform:translateX(-50%);
+      width:min(640px,92%); max-height:300px; overflow:auto; background:white; border:1px solid #cfe8fb; border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.08);
+      margin-top:.5rem; z-index:4; display:none;
+    }
+    .search-results.visible{display:block}
+    .search-results .item{padding:.6rem .8rem; border-bottom:1px solid #f0f0f0; cursor:pointer}
+    .search-results .item:hover{background:#f3f9ff}
+    .search-results .item small{color:#666}
+
+    .content{
+      background:white; border-radius:var(--radius);
+      padding:1.25rem 1.5rem; min-height:46vh; box-shadow:inset 0 0 0 2px #eaf3fb;
+    }
+    .crumbs{color:var(--ink-muted); font-size:.95rem; margin-bottom:.25rem}
+    .node-title{margin:.2rem 0 1rem; font-size:1.4rem}
+    .text{line-height:1.6}
+    .text mark{background:#ffeb98; padding:0 .15em; border-radius:4px}
+
+    .dock{ display:flex; justify-content:center; align-items:center; gap:2rem; padding:1rem 0 .25rem}
+    .dock button{
+      border:none; background:none; cursor:pointer; padding:0;
+    }
+    .dock svg{width:92px; height:76px; fill:var(--accent);}
+    .dock .circle svg{width:92px; height:92px}
+    .dock button:focus-visible{outline:3px solid #124a72; outline-offset:4px; border-radius:12px}
+
+    .palette{ position:fixed; bottom:1rem; left:50%; transform:translateX(-50%);
+      background:white; border:1px solid #dcebfa; border-radius:14px; padding:.75rem; box-shadow:0 18px 42px rgba(0,0,0,.14); display:none; min-width:300px; z-index:6}
+    .palette.visible{display:block}
+    .palette h3{margin:.2rem 0 .6rem; font-size:1.05rem}
+    .palette .row{display:flex; gap:.5rem; flex-wrap:wrap}
+    .palette button{background:#f3f9ff; border:1px solid #d4e9fb; border-radius:10px; padding:.4rem .6rem; cursor:pointer}
+
+    .info{display:flex; justify-content:space-between; align-items:center; gap:1rem; color:#4d4d4d}
+    .info .left{display:flex; gap:.5rem; align-items:center}
+    .tag{background:#ebf6ff; border:1px solid #cae9ff; color:#134b73; border-radius:8px; padding:.15rem .45rem; font-size:.8rem}
+
+    .hidden{display:none !important}
+    .muted{color:#666}
+
+    @media (max-width:720px){
+      .dock svg{width:72px; height:60px}
+      .dock .circle svg{width:72px; height:72px}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <label role="button" aria-label="Import file"><input id="fileInput" type="file" accept=".json,.txt,.md,.text" />📥 Import</label>
+  <button id="btnExport" title="Export normalized JSON">⤴️ Export</button>
+  <button id="btnPrint" title="Print current view">🖨️ Print</button>
+  <button id="btnHelp" title="Help / Shortcuts">❓ Help</button>
+  <div class="title">File Menu / Navigation</div>
+  <div class="left info">$1
+    <button id="btnLoadBuiltIn" title="Load bundled full transcription">📚 Load Full Text</button>
+  </div>
+</header>
+
+<!-- Embedded offline bundle(s) -->
+<div class="hidden">
+  <script type="application/json" id="bundle-full">{
+    "meta": {"title": "United States Constitution — Embedded (Preamble, Articles I–VII summary, Amendments I–X full)", "source": "Public domain transcription", "version": "embedded-lite-1"},
+    "sequence": [
+      {"kind":"preamble","id":"preamble"},
+      {"kind":"article","num":1,"section":1,"id":"art1-sec1"},
+      {"kind":"article","num":1,"section":2,"id":"art1-sec2"},
+      {"kind":"article","num":1,"section":3,"id":"art1-sec3"},
+      {"kind":"article","num":1,"section":4,"id":"art1-sec4"},
+      {"kind":"article","num":1,"section":5,"id":"art1-sec5"},
+      {"kind":"article","num":1,"section":6,"id":"art1-sec6"},
+      {"kind":"article","num":1,"section":7,"id":"art1-sec7"},
+      {"kind":"article","num":1,"section":8,"id":"art1-sec8"},
+      {"kind":"article","num":1,"section":9,"id":"art1-sec9"},
+      {"kind":"article","num":1,"section":10,"id":"art1-sec10"},
+      {"kind":"article","num":2,"section":1,"id":"art2-sec1"},
+      {"kind":"article","num":2,"section":2,"id":"art2-sec2"},
+      {"kind":"article","num":2,"section":3,"id":"art2-sec3"},
+      {"kind":"article","num":2,"section":4,"id":"art2-sec4"},
+      {"kind":"article","num":3,"section":1,"id":"art3-sec1"},
+      {"kind":"article","num":3,"section":2,"id":"art3-sec2"},
+      {"kind":"article","num":3,"section":3,"id":"art3-sec3"},
+      {"kind":"article","num":4,"section":1,"id":"art4-sec1"},
+      {"kind":"article","num":4,"section":2,"id":"art4-sec2"},
+      {"kind":"article","num":4,"section":3,"id":"art4-sec3"},
+      {"kind":"article","num":4,"section":4,"id":"art4-sec4"},
+      {"kind":"article","num":5,"section":1,"id":"art5-sec1"},
+      {"kind":"article","num":6,"section":1,"id":"art6-sec1"},
+      {"kind":"article","num":7,"section":1,"id":"art7-sec1"},
+      {"kind":"amendment","num":1,"id":"am1"},
+      {"kind":"amendment","num":2,"id":"am2"},
+      {"kind":"amendment","num":3,"id":"am3"},
+      {"kind":"amendment","num":4,"id":"am4"},
+      {"kind":"amendment","num":5,"id":"am5"},
+      {"kind":"amendment","num":6,"id":"am6"},
+      {"kind":"amendment","num":7,"id":"am7"},
+      {"kind":"amendment","num":8,"id":"am8"},
+      {"kind":"amendment","num":9,"id":"am9"},
+      {"kind":"amendment","num":10,"id":"am10"}
+    ],
+    "nodes": {
+      "preamble": {"title":"Preamble","text":"We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America."},
+      "art1-sec1": {"title":"Article I, Section 1","text":"All legislative Powers herein granted shall be vested in a Congress of the United States, which shall consist of a Senate and House of Representatives."},
+      "art1-sec2": {"title":"Article I, Section 2","text":"The House of Representatives shall be composed of Members chosen every second Year by the People of the several States … (full canonical text varies by edition)."},
+      "art1-sec3": {"title":"Article I, Section 3","text":"The Senate of the United States shall be composed of two Senators from each State, chosen by the Legislature thereof … (selection later modified by Amendment XVII)."},
+      "art1-sec4": {"title":"Article I, Section 4","text":"The Times, Places and Manner of holding Elections for Senators and Representatives …"},
+      "art1-sec5": {"title":"Article I, Section 5","text":"Each House shall be the Judge of the Elections, Returns and Qualifications of its own Members …"},
+      "art1-sec6": {"title":"Article I, Section 6","text":"The Senators and Representatives shall receive a Compensation for their Services … (privilege from arrest; incompatibility)."},
+      "art1-sec7": {"title":"Article I, Section 7","text":"All Bills for raising Revenue shall originate in the House of Representatives … (presentment & veto)."},
+      "art1-sec8": {"title":"Article I, Section 8","text":"The Congress shall have Power To lay and collect Taxes … To regulate Commerce … To declare War … and To make all Laws which shall be necessary and proper …"},
+      "art1-sec9": {"title":"Article I, Section 9","text":"No Tax or Duty shall be laid on Articles exported from any State … No Title of Nobility shall be granted …"},
+      "art1-sec10": {"title":"Article I, Section 10","text":"No State shall enter into any Treaty, Alliance, or Confederation … coin Money … pass any Bill of Attainder, ex post facto Law …"},
+      "art2-sec1": {"title":"Article II, Section 1","text":"The executive Power shall be vested in a President of the United States of America … (Electoral College; later modified by Amendments XII & XX)."},
+      "art2-sec2": {"title":"Article II, Section 2","text":"The President shall be Commander in Chief … make Treaties (with Senate) … nominate and appoint Officers …"},
+      "art2-sec3": {"title":"Article II, Section 3","text":"He shall from time to time give to the Congress Information of the State of the Union … take Care that the Laws be faithfully executed …"},
+      "art2-sec4": {"title":"Article II, Section 4","text":"The President, Vice President and all civil Officers … shall be removed on Impeachment and Conviction of Treason, Bribery, or other high Crimes and Misdemeanors."},
+      "art3-sec1": {"title":"Article III, Section 1","text":"The judicial Power … vested in one supreme Court, and such inferior Courts as Congress may ordain and establish …"},
+      "art3-sec2": {"title":"Article III, Section 2","text":"The judicial Power shall extend to all Cases, in Law and Equity … (later limited by Amendment XI regarding suits against states)."},
+      "art3-sec3": {"title":"Article III, Section 3","text":"Treason against the United States … (two witnesses to the same overt Act, or confession in open Court)."},
+      "art4-sec1": {"title":"Article IV, Section 1","text":"Full Faith and Credit shall be given in each State to the public Acts, Records, and judicial Proceedings of every other State …"},
+      "art4-sec2": {"title":"Article IV, Section 2","text":"The Citizens of each State shall be entitled to all Privileges and Immunities of Citizens in the several States … (extradition)."},
+      "art4-sec3": {"title":"Article IV, Section 3","text":"New States may be admitted by the Congress into this Union … (territory)."},
+      "art4-sec4": {"title":"Article IV, Section 4","text":"The United States shall guarantee to every State a Republican Form of Government …"},
+      "art5-sec1": {"title":"Article V","text":"The Congress, whenever two thirds of both Houses shall deem it necessary, shall propose Amendments … (methods of amendment)."},
+      "art6-sec1": {"title":"Article VI","text":"All Debts contracted … shall be as valid … This Constitution … shall be the supreme Law of the Land …"},
+      "art7-sec1": {"title":"Article VII","text":"The Ratification of the Conventions of nine States, shall be sufficient for the Establishment of this Constitution …"},
+
+      "am1": {"title":"Amendment I","text":"Congress shall make no law respecting an establishment of religion, or prohibiting the free exercise thereof; or abridging the freedom of speech, or of the press; or the right of the people peaceably to assemble, and to petition the Government for a redress of grievances."},
+      "am2": {"title":"Amendment II","text":"A well regulated Militia, being necessary to the security of a free State, the right of the people to keep and bear Arms, shall not be infringed."},
+      "am3": {"title":"Amendment III","text":"No Soldier shall, in time of peace be quartered in any house, without the consent of the Owner, nor in time of war, but in a manner to be prescribed by law."},
+      "am4": {"title":"Amendment IV","text":"The right of the people to be secure in their persons, houses, papers, and effects, against unreasonable searches and seizures, shall not be violated, and no Warrants shall issue, but upon probable cause, supported by Oath or affirmation, and particularly describing the place to be searched, and the persons or things to be seized."},
+      "am5": {"title":"Amendment V","text":"No person shall be held to answer for a capital, or otherwise infamous crime, unless on a presentment or indictment of a Grand Jury …; nor shall any person be subject for the same offence to be twice put in jeopardy of life or limb; nor shall be compelled in any criminal case to be a witness against himself, nor be deprived of life, liberty, or property, without due process of law; nor shall private property be taken for public use, without just compensation."},
+      "am6": {"title":"Amendment VI","text":"In all criminal prosecutions, the accused shall enjoy the right to a speedy and public trial … to be informed of the nature and cause of the accusation; to be confronted with the witnesses against him; to have compulsory process for obtaining witnesses in his favor, and to have the Assistance of Counsel for his defence."},
+      "am7": {"title":"Amendment VII","text":"In Suits at common law, where the value in controversy shall exceed twenty dollars, the right of trial by jury shall be preserved, and no fact tried by a jury, shall be otherwise re-examined in any Court of the United States, than according to the rules of the common law."},
+      "am8": {"title":"Amendment VIII","text":"Excessive bail shall not be required, nor excessive fines imposed, nor cruel and unusual punishments inflicted."},
+      "am9": {"title":"Amendment IX","text":"The enumeration in the Constitution, of certain rights, shall not be construed to deny or disparage others retained by the people."},
+      "am10": {"title":"Amendment X","text":"The powers not delegated to the United States by the Constitution, nor prohibited by it to the States, are reserved to the States respectively, or to the people."}
+    }
+  }</script>
+</div>
+
+<main class="wrap" id="app">
+  <div class="panel">
+    <div class="search-bar">
+      <input id="search" type="search" placeholder="Search the Constitution (⌘/Ctrl+K)" aria-label="Search" />
+    </div>
+    <div id="searchResults" class="search-results" role="listbox" aria-label="Search results"></div>
+
+    <section class="content" aria-live="polite">
+      <div class="crumbs" id="crumbs">—</div>
+      <h1 class="node-title" id="title">Load a Constitution file to begin</h1>
+      <article class="text" id="text">
+        <p>This offline viewer lets you import a JSON or TXT/MD transcription of the United States Constitution and navigate by Article, Section, and Amendment. Use the big arrows or your keyboard (←/→). The round button opens a quick-jump and tools palette.
+        </p>
+        <p><strong>Try it now:</strong> click <em>Import</em> and choose “Sample (minimal).json” that I bundled below, or drop your own file anywhere on this page.</p>
+      </article>
+    </section>
+  </div>
+
+  <nav class="dock" aria-label="Pager controls">
+    <button id="prev" aria-label="Previous (Left Arrow)">
+      <svg viewBox="0 0 100 80" aria-hidden="true"><polygon points="70,20 70,40 100,40 100,60 70,60 70,80 20,50 20,30"/></svg>
+    </button>
+    <button id="paletteToggle" class="circle" aria-haspopup="dialog" aria-expanded="false" aria-controls="palette">
+      <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"/></svg>
+    </button>
+    <button id="next" aria-label="Next (Right Arrow)">
+      <svg viewBox="0 0 100 80" aria-hidden="true"><polygon points="30,20 30,40 0,40 0,60 30,60 30,80 80,50 80,30"/></svg>
+    </button>
+  </nav>
+</main>
+
+<div id="palette" class="palette" role="dialog" aria-modal="false" aria-label="Tools palette">
+  <h3>Tools & Quick‑jump</h3>
+  <div class="row" id="quickJump"></div>
+  <hr/>
+  <div class="row">
+    <button id="btnBookmarks">★ Bookmarks</button>
+    <button id="btnToggleTheme">🌓 Theme</button>
+    <button id="btnExportHTML">⤴️ Export current view (HTML)</button>
+  </div>
+</div>
+
+<script>
+/**
+ * Constitution Navigator — single‑file, offline, no dependencies
+ * - Imports .json (normalized or raw) or .txt/.md and normalizes to {sequence, nodes}
+ * - Paginates with arrows/keyboard
+ * - Full‑text search with a tiny inverted index
+ * - Deep links via #hash
+ * - Bookmarks + last position in localStorage
+ */
+(() => {
+  const els = {$1,
+    btnLoadBuiltIn: document.getElementById('btnLoadBuiltIn')
+  };
+
+  const STORE = {
+    key: 'constitution.navigator.v1',
+    load(){ try { return JSON.parse(localStorage.getItem(this.key)) || {}; } catch { return {}; } },
+    save(data){ localStorage.setItem(this.key, JSON.stringify(data)); }
+  };
+
+  const state = {
+    data: null,            // normalized {meta, sequence, nodes}
+    index: 0,              // pointer in sequence
+    inverted: null,        // term -> Set(nodeId)
+    termCounts: null,      // nodeId -> term -> count
+    bookmarks: new Set(),
+  };
+
+  // ———————————— UTILITIES ————————————
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+
+  const saveSession = () => {
+    const s = STORE.load();
+    s.last = { id: state.data ? state.data.sequence[state.index]?.id : null };
+    s.bookmarks = [...state.bookmarks];
+    STORE.save(s);
+  };
+
+  const restoreSession = () => {
+    const s = STORE.load();
+    if (s.bookmarks) state.bookmarks = new Set(s.bookmarks);
+    return s.last?.id || null;
+  };
+
+  const download = (filename, content, type='application/json') => {
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  };
+
+  const escapeHTML = (s) => s
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;');
+
+  const romanToInt = (roman) => {
+    if (!roman) return NaN;
+    const map = {I:1,V:5,X:10,L:50,C:100,D:500,M:1000};
+    let sum = 0, prev = 0;
+    for (let i=roman.length-1; i>=0; i--){
+      const val = map[roman[i].toUpperCase()]||0;
+      sum += val < prev ? -val : val; prev = val;
+    }
+    return sum;
+  };
+
+  const tokenize = (s) => (s||'')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9\s'-]/g,' ')
+    .split(/\s+/)
+    .filter(t => t && !STOP.has(t));
+
+  const STOP = new Set('a an the and or of to for is are be been being with without within into upon by at from on in that this those these which who whom whose not no nor as than it its their there here where when while such shall will may must can could should would'.split(/\s+/));
+
+  // ———————————— NORMALIZATION ————————————
+  function normalize(raw){
+    // Already normalized?
+    if (raw && raw.sequence && raw.nodes) {
+      const out = JSON.parse(JSON.stringify(raw));
+      out.meta = out.meta || {title:'United States Constitution (Imported)'};
+      return out;
+    }
+
+    // If raw looks like a known simple JSON shape (common public datasets)
+    if (raw && raw.articles && raw.amendments){
+      const seq = []; const nodes = {};
+      if (raw.preamble){
+        nodes['preamble'] = {title:'Preamble', text: raw.preamble.trim()};
+        seq.push({kind:'preamble', id:'preamble'});
+      }
+      (raw.articles||[]).forEach((article, i) => {
+        const aNum = article.number || i+1;
+        (article.sections||[{text:article.text||''}]).forEach((sec, j)=>{
+          const id = `art${aNum}-sec${j+1}`;
+          nodes[id] = {title:`Article ${aNum}, Section ${j+1}` , text:(sec.text||'').trim()};
+          seq.push({kind:'article', num:aNum, section:j+1, id});
+        });
+      });
+      (raw.amendments||[]).forEach((am, i)=>{
+        const n = am.number || i+1; const id = `am${n}`;
+        nodes[id] = {title:`Amendment ${n}`, text:(am.text||'').trim()};
+        seq.push({kind:'amendment', num:n, id});
+      });
+      return { meta: {title:'United States Constitution', source: raw.source||'Imported JSON'}, sequence: seq, nodes };
+    }
+
+    // Fallback: parse plain text / markdown by headings.
+    if (typeof raw === 'string'){
+      return parsePlaintext(raw);
+    }
+
+    throw new Error('Unrecognized input shape');
+  }
+
+  function parsePlaintext(text){
+    // Heuristic parser for common transcriptions
+    // Recognizes Preamble, Article Roman numerals, Sections, Amendments roman numerals.
+    const lines = text.split(/\r?\n/);
+    const nodes = {}; const seq = [];
+
+    // Join paragraphs while keeping blank lines
+    const t = text.replace(/\r/g,'');
+
+    // Try capture Preamble
+    const preambleMatch = t.match(/\bPreamble\b[\s\S]*?(?=\n\s*Article\s+[IVXLCDM]+\b)/i);
+    if (preambleMatch){
+      nodes['preamble'] = {title:'Preamble', text: preambleMatch[0].replace(/\bPreamble\b/i,'').trim()};
+      seq.push({kind:'preamble', id:'preamble'});
+    }
+
+    // Articles & Sections
+    const articleRegex = /(Article)\s+([IVXLCDM]+)([\s\S]*?)(?=\n\s*Article\s+[IVXLCDM]+\b|\n\s*Amendment\s+[IVXLCDM]+\b|\s*$)/gi;
+    let am; let m;
+    while ((m = articleRegex.exec(t))){
+      const aRoman = m[2]; const aNum = romanToInt(aRoman) || aRoman;
+      const body = m[3].trim();
+      // Split sections: Section 1. ...
+      const sections = body.split(/\n\s*Section\s+(\d+)\.?\s*/i).filter(Boolean);
+      if (sections.length>1){
+        // sections like [prelude, num1, text1, num2, text2,...]
+        for (let i=0; i<sections.length; i+=2){
+          const sNum = Number(sections[i]);
+          const sText = (sections[i+1]||'').trim();
+          const id = `art${aNum}-sec${sNum}`;
+          nodes[id] = {title:`Article ${aNum}, Section ${sNum}`, text:sText};
+          seq.push({kind:'article', num:aNum, section:sNum, id});
+        }
+      } else {
+        // No explicit sections — treat as one
+        const id = `art${aNum}-sec1`;
+        nodes[id] = {title:`Article ${aNum}`, text:body};
+        seq.push({kind:'article', num:aNum, section:1, id});
+      }
+    }
+
+    const amendRegex = /(Amendment)\s+([IVXLCDM]+)([\s\S]*?)(?=\n\s*Amendment\s+[IVXLCDM]+\b|\s*$)/gi;
+    while ((am = amendRegex.exec(t))){
+      const aRoman = am[2]; const num = romanToInt(aRoman) || aRoman; const body = am[3].trim();
+      const id = `am${num}`; nodes[id] = {title:`Amendment ${num}`, text:body};
+      seq.push({kind:'amendment', num, id});
+    }
+
+    return { meta:{title:'United States Constitution (Imported text)'}, sequence: seq, nodes };
+  }
+
+  // ———————————— SEARCH INDEX ————————————
+  function buildIndex(data){
+    const inverted = new Map();
+    const countsByNode = new Map();
+    for (const entry of data.sequence){
+      const node = data.nodes[entry.id];
+      const terms = tokenize(`${node.title}\n${node.text}`);
+      const counts = new Map();
+      for (const term of terms){
+        counts.set(term, (counts.get(term)||0)+1);
+      }
+      countsByNode.set(entry.id, counts);
+      for (const [term] of counts){
+        if (!inverted.has(term)) inverted.set(term,new Set());
+        inverted.get(term).add(entry.id);
+      }
+    }
+    state.inverted = inverted; state.termCounts = countsByNode;
+  }
+
+  function search(query){
+    const terms = tokenize(query);
+    if (!terms.length) return [];
+    const score = new Map();
+    for (const term of terms){
+      const set = state.inverted.get(term); if (!set) continue;
+      for (const id of set){
+        const tf = (state.termCounts.get(id)?.get(term) || 0);
+        score.set(id, (score.get(id)||0) + tf);
+      }
+    }
+    // Convert to array of {id,score, excerpt}
+    const results = [...score.entries()].sort((a,b)=>b[1]-a[1]).slice(0,50).map(([id,s])=>{
+      const node = state.data.nodes[id];
+      const snippet = makeSnippet(node.text, terms, 120);
+      return {id, score:s, title: node.title, snippet};
+    });
+    return results;
+  }
+
+  function makeSnippet(text, terms, len){
+    const t = text || '';
+    const idx = Math.max(0, ...terms.map(term => t.toLowerCase().indexOf(term)).filter(i=>i>=0));
+    const start = Math.max(0, idx - Math.floor(len/2));
+    const slice = t.slice(start, start+len);
+    return (start? '…' : '') + slice + (start+len < t.length ? '…' : '');
+  }
+
+  function highlight(text, terms){
+    let out = escapeHTML(text);
+    for (const term of [...new Set(terms)]){
+      const re = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`,'ig');
+      out = out.replace(re,'<mark>$1</mark>');
+    }
+    return out;
+  }
+
+  // ———————————— RENDERING ————————————
+  function render(){
+    if (!state.data){ return; }
+    const entry = state.data.sequence[state.index];
+    const node = state.data.nodes[entry.id];
+
+    els.crumbs.textContent = entry.kind === 'article'
+      ? `Article ${entry.num}${entry.section?`, Section ${entry.section}`:''}`
+      : (entry.kind === 'amendment' ? `Amendment ${entry.num}` : 'Preamble');
+
+    els.title.textContent = node.title;
+
+    const terms = tokenize(els.search.value);
+    els.text.innerHTML = terms.length ? `<p>${highlight(node.text, terms).replace(/\n+/g,'</p><p>')}</p>`
+                                      : `<p>${escapeHTML(node.text).replace(/\n+/g,'</p><p>')}</p>`;
+
+    els.locTag.textContent = entry.kind;
+    els.countTag.textContent = `${state.index+1} / ${state.data.sequence.length}`;
+
+    // Update hash
+    if (entry.id !== (location.hash||'').slice(1)){
+      history.replaceState(null,'',`#${entry.id}`);
+    }
+
+    // Save session lazily
+    saveSession();
+  }
+
+  function gotoById(id){
+    const i = state.data.sequence.findIndex(x=>x.id===id);
+    if (i>=0){ state.index = i; render(); }
+  }
+
+  const step = (delta) => { if (!state.data) return; state.index = (state.index + delta + state.data.sequence.length) % state.data.sequence.length; render(); };
+
+  // ———————————— QUICK JUMP ————————————
+  function renderQuickJump(){
+    if (!state.data) { els.quickJump.innerHTML = '<span class="muted">Load a document to enable quick‑jump…</span>'; return; }
+    const frag = document.createDocumentFragment();
+    for (const entry of state.data.sequence){
+      const btn = document.createElement('button');
+      btn.textContent = (entry.kind==='article' ? `Art ${entry.num}${entry.section?'.'+entry.section:''}` : entry.kind==='amendment'? `Am ${entry.num}` : 'Preamble');
+      btn.addEventListener('click', ()=>{ gotoById(entry.id); togglePalette(false); });
+      frag.appendChild(btn);
+    }
+    els.quickJump.replaceChildren(frag);
+  }
+
+  function togglePalette(force){
+    const will = typeof force === 'boolean' ? force : !els.palette.classList.contains('visible');
+    els.palette.classList.toggle('visible', will);
+    els.paletteToggle.setAttribute('aria-expanded', String(will));
+  }
+
+  // ———————————— BOOKMARKS / EXPORT ————————————
+  function toggleBookmark(){
+    if (!state.data) return;
+    const id = state.data.sequence[state.index].id;
+    if (state.bookmarks.has(id)) state.bookmarks.delete(id); else state.bookmarks.add(id);
+    saveSession();
+    alert((state.bookmarks.has(id)?'Added':'Removed') + ' bookmark for '+state.data.nodes[id].title);
+  }
+
+  function showBookmarks(){
+    if (!state.bookmarks.size) { alert('No bookmarks yet.'); return; }
+    const items = [...state.bookmarks].map(id=>state.data.nodes[id]?.title || id).join('\n• ');
+    const go = prompt('Bookmarks (click OK to jump). Copy as needed.\n\n• '+items+'\n\nType a title fragment to jump:');
+    if (!go) return;
+    const id = [...state.bookmarks].find(id=> (state.data.nodes[id]?.title||'').toLowerCase().includes(go.toLowerCase()));
+    if (id) gotoById(id);
+  }
+
+  function exportCurrentHTML(){
+    if (!state.data) return;
+    const entry = state.data.sequence[state.index];
+    const node = state.data.nodes[entry.id];
+    const html = `<!-- Constitution fragment export -->\n<section class="constitution-fragment">\n  <h2>${escapeHTML(node.title)}</h2>\n  <div>\n    <p>${escapeHTML(node.text).replace(/\n+/g,'</p>\n    <p>')}</p>\n  </div>\n  <footer><small>Source: ${escapeHTML(state.data.meta?.source||'Imported')} — Exported ${new Date().toISOString()}</small></footer>\n</section>`;
+    download(`${entry.id}.html`, html, 'text/html');
+  }
+
+  // ———————————— WIRING ————————————$1
+  // Built‑in loader for full transcription placed in the HTML (script#bundle-full)
+  if (els.btnLoadBuiltIn){
+    els.btnLoadBuiltIn.addEventListener('click', ()=>{
+      const node = document.getElementById('bundle-full');
+      if (!node || !node.textContent.trim()) { alert('No built‑in bundle embedded yet. You can still import a JSON/TXT file.'); return; }
+      try{
+        const obj = JSON.parse(node.textContent);
+        state.data = normalize(obj);
+        state.index = 0;
+        buildIndex(state.data);
+        renderQuickJump();
+        render();
+      }catch(e){ alert('Could not parse embedded bundle: '+e.message); }
+    });
+  }
+
+  els.prev.addEventListener('click', ()=>step(-1));
+  els.next.addEventListener('click', ()=>step(1));
+  els.paletteToggle.addEventListener('click', ()=>{ renderQuickJump(); togglePalette(); });
+  els.btnBookmarks.addEventListener('click', showBookmarks);
+  els.btnToggleTheme.addEventListener('click', ()=>{
+    const dark = document.documentElement.dataset.theme === 'dark';
+    document.documentElement.dataset.theme = dark? '' : 'dark';
+    if (!dark){
+      document.documentElement.style.setProperty('--bg','#0b0f14');
+      document.documentElement.style.setProperty('--ink','#e8f0f8');
+      document.documentElement.style.setProperty('--panel','#0f1a24');
+    } else {
+      document.documentElement.style.removeProperty('--bg');
+      document.documentElement.style.removeProperty('--ink');
+      document.documentElement.style.removeProperty('--panel');
+    }
+  });
+  els.btnExportHTML.addEventListener('click', exportCurrentHTML);
+
+  els.btnExport.addEventListener('click', ()=>{
+    if (!state.data) return alert('Nothing to export yet. Import a file first.');
+    download('constitution-normalized.json', JSON.stringify(state.data, null, 2));
+  });
+  els.btnPrint.addEventListener('click', ()=>window.print());
+  els.btnHelp.addEventListener('click', ()=>{
+    alert(`Shortcuts:\n\n← / →  Navigate\n/ or Ctrl/Cmd+K  Focus search\nEnter  Open top search result\nB  Toggle bookmark for current section\nP  Toggle tools palette`);
+  });
+
+  // Drag & Drop import
+  ;['dragenter','dragover'].forEach(evt=>document.addEventListener(evt, e=>{ e.preventDefault(); e.dataTransfer.dropEffect='copy'; }));
+  document.addEventListener('drop', async (e)=>{
+    e.preventDefault();
+    const f = e.dataTransfer.files?.[0]; if (!f) return;
+    await importFile(f);
+  });
+
+  // File input import
+  els.fileInput.addEventListener('change', async (e)=>{
+    const f = e.target.files?.[0]; if (!f) return; await importFile(f); e.target.value='';
+  });
+
+  async function importFile(file){
+    const text = await file.text();
+    let raw;
+    try { raw = JSON.parse(text); } catch { raw = text; }
+    try {
+      state.data = normalize(raw);
+      state.index = 0;
+      buildIndex(state.data);
+      renderQuickJump();
+      // Restore last position if matches
+      const last = restoreSession();
+      if (last && state.data.nodes[last]) gotoById(last); else render();
+    } catch(err){
+      console.error(err); alert('Could not import: '+err.message);
+    }
+  }
+
+  // Search UI
+  let searchDebounce;
+  function updateResults(){
+    if (!state.data){ els.results.classList.remove('visible'); return; }
+    const q = els.search.value.trim();
+    if (!q){ els.results.classList.remove('visible'); render(); return; }
+    const hits = search(q);
+    const frag = document.createDocumentFragment();
+    hits.slice(0,30).forEach(h=>{
+      const div = document.createElement('div');
+      div.className = 'item'; div.setAttribute('role','option');
+      div.innerHTML = `<div><strong>${escapeHTML(h.title)}</strong></div><small>${escapeHTML(h.snippet)}</small>`;
+      div.addEventListener('click', ()=>{ gotoById(h.id); els.results.classList.remove('visible'); });
+      frag.appendChild(div);
+    });
+    els.results.replaceChildren(frag);
+    els.results.classList.toggle('visible', hits.length>0);
+    render();
+  }
+  els.search.addEventListener('input', ()=>{ clearTimeout(searchDebounce); searchDebounce = setTimeout(updateResults, 140); });
+  els.search.addEventListener('keydown', (e)=>{
+    if (e.key==='Enter'){
+      const first = $('.item', els.results); if (first) first.click();
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e)=>{
+    if (e.key==='ArrowLeft') step(-1);
+    else if (e.key==='ArrowRight') step(1);
+    else if ((e.ctrlKey||e.metaKey) && (e.key.toLowerCase()==='k' || e.key==='/')) { e.preventDefault(); els.search.focus(); }
+    else if (e.key.toLowerCase()==='b') toggleBookmark();
+    else if (e.key.toLowerCase()==='p') togglePalette();
+  });
+
+  // Deep link support
+  window.addEventListener('hashchange', ()=>{ if (state.data) gotoById((location.hash||'').slice(1)); });
+
+  // Sample minimal dataset in case you want to test instantly
+  // (Public domain; this is a tiny excerpt)
+  const SAMPLE = {
+    meta:{title:'United States Constitution (Sample)', source:'Public domain'},
+    sequence:[
+      {kind:'preamble', id:'preamble'},
+      {kind:'article', num:1, section:1, id:'art1-sec1'},
+      {kind:'article', num:1, section:2, id:'art1-sec2'},
+      {kind:'amendment', num:1, id:'am1'},
+      {kind:'amendment', num:2, id:'am2'}
+    ],
+    nodes:{
+      preamble:{title:'Preamble', text:'We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America.'},
+      'art1-sec1':{title:'Article I, Section 1', text:'All legislative Powers herein granted shall be vested in a Congress of the United States, which shall consist of a Senate and House of Representatives.'},
+      'art1-sec2':{title:'Article I, Section 2', text:'The House of Representatives shall be composed of Members chosen every second Year by the People of the several States...'},
+      'am1':{title:'Amendment I', text:'Congress shall make no law respecting an establishment of religion, or prohibiting the free exercise thereof; or abridging the freedom of speech, or of the press; or the right of the people peaceably to assemble, and to petition the Government for a redress of grievances.'},
+      'am2':{title:'Amendment II', text:'A well regulated Militia, being necessary to the security of a free State, the right of the people to keep and bear Arms, shall not be infringed.'}
+    }
+  };
+
+  // Offer the sample as a built‑in download the first time if nothing in storage
+  if (!restoreSession()){
+    // Preload sample so the UI is not empty
+    state.data = SAMPLE; buildIndex(state.data); renderQuickJump(); render();
+  }
+
+})();
+</script>
+</body>
+</html>
