@@ -4,6 +4,8 @@ ChatGPT Canvas Link - https://chatgpt.com/canvas/shared/68f16102d53481919e74e09b
 
 Offline version with embedded Constitution from U.S. Senate and Cornell L.I.I. per ChatGPT recommendation for modernized labeling and punctuation.
 
+The reason I included the Grammarly excerpt is so that variations of language are easily understood - either way - I interpret the preamble as to ensure (needless to say there are some petty folks who may try to use grammatical errors or misconstrue the word, attorney's do that)
+
 ---
 
 ```markdown
