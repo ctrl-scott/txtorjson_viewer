@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Constitution Navigator (Offline) — v2</title>
+  <style>
+    :root{ --bg:#ffffff; --ink:#111; --ink-muted:#333; --accent:#6ab6e6; --accent-2:#2e86c1; --panel:#f7fbff; --radius:22px; }
+    html,body{height:100%}
+    body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji"; background:var(--bg); color:var(--ink); display:flex; flex-direction:column}
+    header{background:var(--accent); color:#00324f; font-weight:700; letter-spacing:.2px; padding:.6rem .7rem; position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; box-shadow:0 2px 10px rgba(0,0,0,.06)}
+    header .title{flex:1; text-align:center}
+    header button, header label[role="button"]{background:#e9f4fd; border:1px solid #b9ddf5; color:#0c3b59; padding:.45rem .7rem; border-radius:10px; cursor:pointer; font-weight:600}
+    header button:hover, header label[role="button"]:hover{background:#dff0fc}
+    header input[type=file]{display:none}
+
+    .layout{display:grid; grid-template-columns: 280px 1fr; gap:1rem; max-width:1200px; width:100%; margin:0 auto; padding:1rem; flex:1}
+    .layout.toc-hidden{grid-template-columns: 1fr}
+
+    /* Sidebar TOC */
+    .toc{background:#f5faff; border:2px solid var(--accent); border-radius:16px; padding:.6rem .6rem 1rem; overflow:auto; max-height:calc(100vh - 130px)}
+    .toc h3{margin:.2rem .4rem .4rem; font-size:1rem}
+    .toc .group{margin:.35rem 0}
+    .toc details summary{cursor:pointer; list-style:none; font-weight:700; margin:.25rem 0; padding:.3rem .45rem; border-radius:8px}
+    .toc details[open] summary{background:#e9f4fd; border:1px solid #cce6fb}
+    .toc .item{display:block; padding:.25rem .6rem; border-radius:6px; cursor:pointer}
+    .toc .item:hover{background:#eef7ff}
+    .toc .active{background:#cfe8ff}
+
+    /* Center panel */
+    .panel{background:var(--panel); border:2px solid var(--accent); border-radius:calc(var(--radius) + 6px); padding:1rem 1rem 1.2rem; position:relative}
+    .search-bar{display:flex; justify-content:center; margin-top:-.5rem}
+    .search-bar input{width:min(560px, 90%); padding:.7rem 1rem; border-radius:12px; border:2px solid var(--accent); background:#e3f1fb; font-size:1rem}
+    .search-results{position:absolute; left:50%; transform:translateX(-50%); width:min(640px,92%); max-height:300px; overflow:auto; background:white; border:1px solid #cfe8fb; border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.08); margin-top:.5rem; z-index:4; display:none}
+    .search-results.visible{display:block}
+    .search-results .item{padding:.6rem .8rem; border-bottom:1px solid #f0f0f0; cursor:pointer}
+    .search-results .item:hover{background:#f3f9ff}
+    .search-results .item small{color:#666}
+
+    .content{background:white; border-radius:var(--radius); padding:1.25rem 1.5rem; min-height:46vh; box-shadow:inset 0 0 0 2px #eaf3fb}
+    .crumbs{color:var(--ink-muted); font-size:.95rem; margin-bottom:.25rem}
+    .node-title{margin:.2rem 0 1rem; font-size:1.4rem}
+    .text{line-height:1.6}
+    .text p{position:relative}
+    .text mark{background:#ffeb98; padding:0 .15em; border-radius:4px}
+    .para-anchor{position:absolute; left:-1.6rem; top:.1rem; opacity:0; text-decoration:none}
+    .text p:hover .para-anchor{opacity:1}
+
+    /* Split compare */
+    .compare{display:grid; grid-template-columns:1fr 1fr; gap:1rem}
+    .compare .pane{background:white; border-radius:var(--radius); padding:1rem; box-shadow:inset 0 0 0 2px #eaf3fb}
+
+    .dock{display:flex; justify-content:center; align-items:center; gap:2rem; padding:1rem 0 .25rem}
+    .dock button{border:none; background:none; cursor:pointer; padding:0}
+    .dock svg{width:92px; height:76px; fill:var(--accent)}
+    .dock .circle svg{width:92px; height:92px}
+    .dock button:focus-visible{outline:3px solid #124a72; outline-offset:4px; border-radius:12px}
+
+    .palette{position:fixed; bottom:1rem; left:50%; transform:translateX(-50%); background:white; border:1px solid #dcebfa; border-radius:14px; padding:.75rem; box-shadow:0 18px 42px rgba(0,0,0,.14); display:none; min-width:320px; z-index:12}
+    .palette.visible{display:block}
+    .palette h3{margin:.2rem 0 .6rem; font-size:1.05rem}
+    .palette .row{display:flex; gap:.5rem; flex-wrap:wrap}
+    .palette button{background:#f3f9ff; border:1px solid #d4e9fb; border-radius:10px; padding:.4rem .6rem; cursor:pointer}
+
+    .info{display:flex; justify-content:space-between; align-items:center; gap:1rem; color:#4d4d4d}
+    .info .left{display:flex; gap:.5rem; align-items:center}
+    .tag{background:#ebf6ff; border:1px solid #cae9ff; color:#134b73; border-radius:8px; padding:.15rem .45rem; font-size:.8rem}
+
+    .notes{margin-top:1rem; background:#fcfeff; border:1px dashed #bfe1fb; border-radius:12px; padding:.75rem}
+    .notes h3{margin-top:0}
+    .note{background:#f6fbff; border:1px solid #cfe8fb; border-radius:8px; padding:.5rem .6rem; margin:.35rem 0}
+
+    .hidden{display:none!important}
+    .muted{color:#666}
+
+    @media (max-width:900px){ .compare{grid-template-columns:1fr} }
+    @media (max-width:720px){ .dock svg{width:72px; height:60px} .dock .circle svg{width:72px; height:72px} .layout{grid-template-columns:1fr} }
+  </style>
+</head>
+<body>
+<header>
+  <label role="button" aria-label="Import file"><input id="fileInput" type="file" accept=".json,.txt,.md,.text" />📥 Import</label>
+  <button id="btnImportNotes" title="Import annotations/editions JSON">🗂️ Notes</button>
+  <button id="btnExport" title="Export normalized JSON">⤴️ Export</button>
+  <button id="btnExportNotes" title="Export annotations JSON">★ Export notes</button>
+  <button id="btnPrint" title="Print current view">🖨️ Print</button>
+  <button id="btnHelp" title="Help / Shortcuts">❓ Help</button>
+  <div class="title">File Menu / Navigation</div>
+  <div class="left info">
+    <span id="locTag" class="tag">—</span>
+    <span id="countTag" class="tag">0 / 0</span>
+    <button id="btnToggleToc" title="Toggle Table of Contents">☰ TOC</button>
+    <button id="btnCompare" title="Toggle compare view">⇄ Compare</button>
+  </div>
+</header>
+
+<main class="layout toc-hidden" id="layout">
+  <aside class="toc" id="toc" aria-label="Table of Contents">
+    <h3>Table of Contents</h3>
+    <div id="tocInner" class="groups"></div>
+  </aside>
+
+  <div>
+    <div class="panel">
+      <div class="search-bar">
+        <input id="search" type="search" placeholder="Search the Constitution (⌘/Ctrl+K)" aria-label="Search" />
+      </div>
+      <div id="searchResults" class="search-results" role="listbox" aria-label="Search results"></div>
+
+      <section class="content" aria-live="polite">
+        <div class="crumbs" id="crumbs">—</div>
+        <h1 class="node-title" id="title">Load a Constitution file to begin</h1>
+        <article class="text" id="text">
+          <p>This offline viewer lets you import a JSON or TXT/MD transcription of the United States Constitution and navigate by Article, Section, and Amendment. Now with a sidebar TOC, annotations, and an optional compare view for amended text.</p>
+        </article>
+      </section>
+
+      <section class="notes" id="notesSection" hidden>
+        <h3>Annotations</h3>
+        <div id="notesList"></div>
+        <div class="row">
+          <button id="btnAddNote">Add note (⌘/Ctrl+.)</button>
+          <button id="btnClearNotes">Clear notes for this section</button>
+        </div>
+      </section>
+    </div>
+
+    <nav class="dock" aria-label="Pager controls">
+      <button id="prev" aria-label="Previous (Left Arrow)">
+        <svg viewBox="0 0 100 80" aria-hidden="true"><polygon points="70,20 70,40 100,40 100,60 70,60 70,80 20,50 20,30"/></svg>
+      </button>
+      <button id="paletteToggle" class="circle" aria-haspopup="dialog" aria-expanded="false" aria-controls="palette">
+        <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="45"/></svg>
+      </button>
+      <button id="next" aria-label="Next (Right Arrow)">
+        <svg viewBox="0 0 100 80" aria-hidden="true"><polygon points="30,20 30,40 0,40 0,60 30,60 30,80 80,50 80,30"/></svg>
+      </button>
+    </nav>
+  </div>
+</main>
+
+<div id="palette" class="palette" role="dialog" aria-modal="false" aria-label="Tools palette">
+  <h3>Tools & Quick‑jump</h3>
+  <div class="row" id="quickJump"></div>
+  <hr/>
+  <div class="row">
+    <button id="btnBookmarks">★ Bookmarks</button>
+    <button id="btnToggleTheme">🌓 Theme</button>
+    <button id="btnExportHTML">⤴️ Export current view (HTML)</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  const els = {
+    fileInput: document.getElementById('fileInput'),
+    search: document.getElementById('search'),
+    results: document.getElementById('searchResults'),
+    crumbs: document.getElementById('crumbs'),
+    title: document.getElementById('title'),
+    text: document.getElementById('text'),
+    prev: document.getElementById('prev'),
+    next: document.getElementById('next'),
+    palette: document.getElementById('palette'),
+    paletteToggle: document.getElementById('paletteToggle'),
+    quickJump: document.getElementById('quickJump'),
+    btnBookmarks: document.getElementById('btnBookmarks'),
+    btnToggleTheme: document.getElementById('btnToggleTheme'),
+    btnExportHTML: document.getElementById('btnExportHTML'),
+    btnExport: document.getElementById('btnExport'),
+    btnExportNotes: document.getElementById('btnExportNotes'),
+    btnImportNotes: document.getElementById('btnImportNotes'),
+    btnPrint: document.getElementById('btnPrint'),
+    btnHelp: document.getElementById('btnHelp'),
+    btnToggleToc: document.getElementById('btnToggleToc'),
+    btnCompare: document.getElementById('btnCompare'),
+    locTag: document.getElementById('locTag'),
+    countTag: document.getElementById('countTag'),
+    layout: document.getElementById('layout'),
+    toc: document.getElementById('toc'),
+    tocInner: document.getElementById('tocInner'),
+    notesSection: document.getElementById('notesSection'),
+    notesList: document.getElementById('notesList'),
+    btnAddNote: document.getElementById('btnAddNote'),
+    btnClearNotes: document.getElementById('btnClearNotes')
+  };
+
+  const STORE = { key:'constitution.navigator.v2', load(){ try{return JSON.parse(localStorage.getItem(this.key))||{};}catch{return{}} }, save(d){ localStorage.setItem(this.key, JSON.stringify(d)); } };
+
+  const state = { data:null, index:0, inverted:null, termCounts:null, bookmarks:new Set(), notes:{}, compare:false, editions:{} };
+
+  const STOP = new Set('a an the and or of to for is are be been being with without within into upon by at from on in that this those these which who whom whose not no nor as than it its their there here where when while such shall will may must can could should would'.split(/\s+/));
+  const escapeHTML = (s) => (s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  const $ = (sel,root=document)=>root.querySelector(sel);
+  const tokenize = (s)=> (s||'').toLowerCase().normalize('NFKD').replace(/[^a-z0-9\s'-]/g,' ').split(/\s+/).filter(t=>t&&!STOP.has(t));
+  const romanToInt = (roman)=>{ if(!roman) return NaN; const m={I:1,V:5,X:10,L:50,C:100,D:500,M:1000}; let sum=0,prev=0; for(let i=roman.length-1;i>=0;i--){const v=m[roman[i].toUpperCase()]||0; sum+= v<prev? -v:v; prev=v;} return sum; };
+  const download = (name,content,type='application/json')=>{ const blob=new Blob([content],{type}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(url); a.remove()},0); };
+
+  // —— Normalization ——
+  function normalize(raw){ if(raw && raw.sequence && raw.nodes) return JSON.parse(JSON.stringify(raw)); if(raw && raw.articles && raw.amendments){ const seq=[]; const nodes={}; if(raw.preamble){ nodes.preamble={title:'Preamble', text:raw.preamble.trim()}; seq.push({kind:'preamble', id:'preamble'}); }
+    (raw.articles||[]).forEach((a,i)=>{ const aNum=a.number||i+1; const secs=a.sections||[{text:a.text||''}]; secs.forEach((sec,j)=>{ const sNum=sec.number||j+1; const id=`art${aNum}-sec${sNum}`; nodes[id]={title:`Article ${aNum}, Section ${sNum}`, text:(sec.text||'').trim(), amended_text:sec.amended_text||null, amended_by:sec.amended_by||null}; seq.push({kind:'article', num:aNum, section:sNum, id}); }); });
+    (raw.amendments||[]).forEach((am,i)=>{ const n=am.number||i+1; const id=`am${n}`; nodes[id]={title:`Amendment ${n}`, text:(am.text||'').trim(), amended_text:am.amended_text||null}; seq.push({kind:'amendment', num:n, id}); }); return {meta:{title:'United States Constitution', source:raw.source||'Imported JSON'}, sequence:seq, nodes}; }
+    if (typeof raw === 'string') return parsePlaintext(raw); throw new Error('Unrecognized input shape'); }
+
+  function parsePlaintext(text){ const t=text.replace(/\r/g,''); const nodes={}; const seq=[]; const pre= t.match(/\bPreamble\b[\s\S]*?(?=\n\s*Article\s+[IVXLCDM]+\b)/i); if(pre){ nodes.preamble={title:'Preamble', text:pre[0].replace(/\bPreamble\b/i,'').trim()}; seq.push({kind:'preamble', id:'preamble'}); }
+    const artRe=/(Article)\s+([IVXLCDM]+)[\.:\)]?([\s\S]*?)(?=\n\s*Article\s+[IVXLCDM]+\b|\n\s*Amendment\s+[IVXLCDM]+\b|\s*$)/gi; let m; while((m=artRe.exec(t))){ const aNum=romanToInt(m[2])||m[2]; const body=m[3].trim(); const parts= body.split(/\n\s*(Section|Sec\.)\s+(\d+)\.?\s*/i).filter(Boolean); if(parts.length>1){ for(let i=0;i<parts.length;i+=3){ const sNum=Number(parts[i+1]); const sText=(parts[i+2]||'').trim(); const id=`art${aNum}-sec${sNum}`; nodes[id]={title:`Article ${aNum}, Section ${sNum}`, text:sText}; seq.push({kind:'article', num:aNum, section:sNum, id}); } } else { const id=`art${aNum}-sec1`; nodes[id]={title:`Article ${aNum}`, text:body}; seq.push({kind:'article', num:aNum, section:1, id}); } }
+    const amRe=/(Amendment)\s+([IVXLCDM]+)[\.:\)]?([\s\S]*?)(?=\n\s*Amendment\s+[IVXLCDM]+\b|\s*$)/gi; let a; while((a=amRe.exec(t))){ const num=romanToInt(a[2])||a[2]; const id=`am${num}`; nodes[id]={title:`Amendment ${num}`, text:a[3].trim()}; seq.push({kind:'amendment', num, id}); }
+    return {meta:{title:'United States Constitution (Imported text)'}, sequence:seq, nodes}; }
+
+  // —— Search ——
+  function buildIndex(data){ const inverted=new Map(); const countsByNode=new Map(); for(const e of data.sequence){ const node=data.nodes[e.id]; const terms=tokenize(node.title+'\n'+node.text); const counts=new Map(); for(const term of terms){ counts.set(term,(counts.get(term)||0)+1);} countsByNode.set(e.id,counts); for(const [term] of counts){ if(!inverted.has(term)) inverted.set(term,new Set()); inverted.get(term).add(e.id);} } state.inverted=inverted; state.termCounts=countsByNode; }
+  function search(q){ const terms=tokenize(q); if(!terms.length) return []; const score=new Map(); for(const term of terms){ const set=state.inverted.get(term); if(!set) continue; for(const id of set){ const tf=(state.termCounts.get(id)?.get(term)||0); score.set(id,(score.get(id)||0)+tf); } } return [...score.entries()].sort((a,b)=>b[1]-a[1]).slice(0,50).map(([id,s])=>{ const n=state.data.nodes[id]; return {id,score:s,title:n.title,snippet:makeSnippet(n.text,terms,120)}; }); }
+  const makeSnippet=(text,terms,len)=>{ const t=text||''; const idx=Math.max(0,...terms.map(term=>t.toLowerCase().indexOf(term)).filter(i=>i>=0)); const start=Math.max(0, idx - Math.floor(len/2)); const slice=t.slice(start, start+len); return (start? '…' : '') + slice + (start+len < t.length ? '…' : ''); };
+  const highlight=(text,terms)=>{ let out=escapeHTML(text); for(const term of [...new Set(terms)]){ const re=new RegExp('('+term.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig'); out = out.replace(re,'<mark>$1</mark>'); } return out; };
+
+  // —— Session ——
+  function saveSession(){ const s=STORE.load(); s.last={ id: state.data ? state.data.sequence[state.index]?.id : null }; s.bookmarks=[...state.bookmarks]; s.notes=state.notes; STORE.save(s); }
+  function restoreSession(){ const s=STORE.load(); if(s.bookmarks) state.bookmarks=new Set(s.bookmarks); if(s.notes) state.notes=s.notes; return s.last?.id||null; }
+
+  // —— Rendering ——
+  function render(){ if(!state.data) return; const entry=state.data.sequence[state.index]; const node=state.data.nodes[entry.id]; const terms=tokenize(els.search.value);
+    els.crumbs.textContent = entry.kind==='article' ? `Article ${entry.num}${entry.section?`, Section ${entry.section}`:''}` : (entry.kind==='amendment' ? `Amendment ${entry.num}` : 'Preamble');
+    els.title.textContent=node.title;
+
+    const textHTML = (terms.length? highlight(node.text,terms): escapeHTML(node.text)).replace(/\n+/g, function(){ return '</p>\n<p>'; });
+    const decorated = '<p>'+textHTML+'</p>';
+
+    const frag=document.createElement('div'); frag.innerHTML=decorated; Array.prototype.forEach.call(frag.querySelectorAll('p'), function(p,i){ const pid=entry.id+'-p'+(i+1); const a=document.createElement('a'); a.href='#'+pid; a.className='para-anchor'; a.textContent='¶'; p.id=pid; p.insertBefore(a, p.firstChild); });
+
+    if(state.compare && node.amended_text){
+      els.text.innerHTML = '';
+      const wrap=document.createElement('div'); wrap.className='compare';
+      const left=document.createElement('div'); left.className='pane'; left.innerHTML='<h4>Original</h4>'+frag.innerHTML;
+      const right=document.createElement('div'); right.className='pane'; right.innerHTML='<h4>As Amended</h4><p>'+escapeHTML(node.amended_text).replace(/\n+/g,'</p><p>')+'</p>';
+      wrap.appendChild(left); wrap.appendChild(right); els.text.appendChild(wrap);
+    } else {
+      els.text.innerHTML = frag.innerHTML;
+    }
+
+    els.locTag.textContent=entry.kind; els.countTag.textContent=(state.index+1)+' / '+state.data.sequence.length;
+    if(entry.id !== (location.hash||'').slice(1)) history.replaceState(null,'','#'+entry.id);
+    renderTOC(); renderNotes(); saveSession();
+  }
+
+  function renderTOC(){ if(!state.data) { els.tocInner.innerHTML='<div class="muted">Load a document…</div>'; return; } const groups={ preamble:[], articles:{}, amendments:[] };
+    for(var i=0;i<state.data.sequence.length;i++){ var e=state.data.sequence[i]; if(e.kind==='preamble'){ groups.preamble.push(e); } else if(e.kind==='article'){ if(!groups.articles[e.num]) groups.articles[e.num]=[]; groups.articles[e.num].push(e);} else if(e.kind==='amendment'){ groups.amendments.push(e);} }
+    const root=document.createDocumentFragment();
+    if(groups.preamble.length){ var d=document.createElement('div'); d.className='group'; var a=document.createElement('a'); a.className='item'; a.textContent='Preamble'; if(state.data.sequence[state.index].id===groups.preamble[0].id) a.classList.add('active'); a.onclick=function(){ gotoById(groups.preamble[0].id); }; d.appendChild(a); root.appendChild(d); }
+    var aWrap=document.createElement('div'); aWrap.className='group'; var det=document.createElement('details'); det.open=true; var sum=document.createElement('summary'); sum.textContent='Articles'; det.appendChild(sum);
+    Object.keys(groups.articles).sort(function(a,b){return a-b;}).forEach(function(n){ groups.articles[n].forEach(function(sec){ var it=document.createElement('a'); it.className='item'; it.textContent='Art '+n+(sec.section?'.'+sec.section:''); if(state.data.sequence[state.index].id===sec.id) it.classList.add('active'); it.onclick=function(){ gotoById(sec.id); }; det.appendChild(it); }); });
+    aWrap.appendChild(det); root.appendChild(aWrap);
+    if(groups.amendments.length){ var d2=document.createElement('div'); d2.className='group'; var det2=document.createElement('details'); det2.open=false; var sum2=document.createElement('summary'); sum2.textContent='Amendments'; det2.appendChild(sum2); groups.amendments.forEach(function(am){ var it2=document.createElement('a'); it2.className='item'; it2.textContent='Am '+am.num; if(state.data.sequence[state.index].id===am.id) it2.classList.add('active'); it2.onclick=function(){ gotoById(am.id); }; det2.appendChild(it2); }); d2.appendChild(det2); root.appendChild(d2); }
+    els.tocInner.replaceChildren(root);
+  }
+
+  function gotoById(id){ var i=state.data.sequence.findIndex(function(x){return x.id===id;}); if(i>=0){ state.index=i; render(); } }
+  function step(d){ if(!state.data) return; state.index=(state.index + d + state.data.sequence.length) % state.data.sequence.length; render(); }
+
+  // —— Notes ——
+  function notesFor(id){ if(!state.notes[id]) state.notes[id]=[]; return state.notes[id]; }
+  function renderNotes(){ if(!state.data) { els.notesSection.hidden=true; return; } var id=state.data.sequence[state.index].id; var list=notesFor(id); els.notesSection.hidden=false; if(!list.length){ els.notesList.innerHTML='<div class="muted">No notes yet.</div>'; return; }
+    var frag=document.createDocumentFragment(); list.forEach(function(n,i){ var div=document.createElement('div'); div.className='note'; div.innerHTML='<strong>'+escapeHTML(n.title||'Note')+'</strong> — <small>'+new Date(n.ts).toLocaleString()+'</small><br>'+escapeHTML(n.body||''); var del=document.createElement('button'); del.textContent='Delete'; del.onclick=function(){ list.splice(i,1); renderNotes(); saveSession(); }; div.appendChild(del); frag.appendChild(div); }); els.notesList.replaceChildren(frag); }
+  function addNote(){ if(!state.data) return; var entry=state.data.sequence[state.index]; var title=prompt('Note title', state.data.nodes[entry.id].title); if(title===null) return; var body=prompt('Your note'); if(body===null) return; notesFor(entry.id).push({title:title, body:body, ts:Date.now()}); renderNotes(); saveSession(); }
+  function clearNotes(){ if(!state.data) return; var id=state.data.sequence[state.index].id; if(confirm('Delete all notes for this section?')){ state.notes[id]=[]; renderNotes(); saveSession(); } }
+
+  // —— Editions (for compare view / amended overlays) ——
+  function importEditions(obj){ if(!obj || !obj.nodes) return alert('Invalid editions JSON'); state.editions=obj.nodes; if(state.data){ for(var id in state.editions){ if(state.data.nodes[id]) Object.assign(state.data.nodes[id], state.editions[id]); } render(); } }
+
+  // —— Quick Jump ——
+  function renderQuickJump(){ if(!state.data){ els.quickJump.innerHTML='<span class="muted">Load a document…</span>'; return; } var frag=document.createDocumentFragment(); state.data.sequence.forEach(function(e){ var b=document.createElement('button'); b.textContent=(e.kind==='article'?'Art '+e.num+(e.section?'.'+e.section:''): e.kind==='amendment'?'Am '+e.num:'Preamble'); b.onclick=function(){ gotoById(e.id); togglePalette(false); }; frag.appendChild(b); }); els.quickJump.replaceChildren(frag); }
+  function togglePalette(force){ var will= typeof force==='boolean' ? force : !els.palette.classList.contains('visible'); els.palette.classList.toggle('visible',will); els.paletteToggle.setAttribute('aria-expanded', String(will)); }
+
+  // —— Export helpers ——
+  function exportCurrentHTML(){ if(!state.data) return; var entry=state.data.sequence[state.index]; var node=state.data.nodes[entry.id]; var html='<!-- Constitution fragment export -->\n<section class="constitution-fragment">\n  <h2>'+escapeHTML(node.title)+'</h2>\n  <div>\n    <p>'+escapeHTML(node.text).replace(/\n+/g,'</p>\n    <p>')+'</p>\n  </div>\n  <footer><small>Source: '+escapeHTML(state.data.meta&&state.data.meta.source?state.data.meta.source:'Imported')+' — Exported '+new Date().toISOString()+'</small></footer>\n</section>'; download(entry.id+'.html', html, 'text/html'); }
+
+  // —— Wiring ——
+  els.prev.onclick=function(){ step(-1); }; els.next.onclick=function(){ step(1); }; els.paletteToggle.onclick=function(){ renderQuickJump(); togglePalette(); };
+  els.btnBookmarks.onclick=showBookmarks; els.btnToggleTheme.onclick=toggleTheme; els.btnExportHTML.onclick=exportCurrentHTML; els.btnPrint.onclick=function(){ window.print(); }; els.btnHelp.onclick=showHelp; els.btnToggleToc.onclick=function(){ els.layout.classList.toggle('toc-hidden'); }; els.btnCompare.onclick=function(){ state.compare=!state.compare; render(); };
+  els.btnAddNote.onclick=addNote; els.btnClearNotes.onclick=clearNotes; els.btnExportNotes.onclick=function(){ download('constitution-notes.json', JSON.stringify({nodes:state.notes},null,2)); };
+  els.btnImportNotes.onclick=function(){ var inp=document.createElement('input'); inp.type='file'; inp.accept='.json'; inp.onchange=function(){ var f=inp.files[0]; if(!f) return; var reader=new FileReader(); reader.onload=function(){ try{ var obj=JSON.parse(reader.result); if(obj.nodes){ state.notes = obj.nodes; saveSession(); renderNotes(); } else { importEditions(obj); } }catch(e){ alert('Could not import JSON: '+e.message); } }; reader.readAsText(f); }; inp.click(); };
+
+  // File Imports
+  document.addEventListener('dragenter',function(e){e.preventDefault()}); document.addEventListener('dragover',function(e){e.preventDefault(); e.dataTransfer.dropEffect='copy'}); document.addEventListener('drop',function(e){e.preventDefault(); var f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(!f) return; var reader=new FileReader(); reader.onload=function(){ var text=reader.result; var raw; try{ raw=JSON.parse(text);}catch(_){ raw=text; } try{ state.data=normalize(raw); state.index=0; buildIndex(state.data); renderQuickJump(); var last=restoreSession(); if(last && state.data.nodes[last]) gotoById(last); else render(); } catch(err){ console.error(err); alert('Could not import: '+err.message); } }; reader.readAsText(f); });
+  els.fileInput.addEventListener('change', function(e){ var f=e.target.files&&e.target.files[0]; if(!f) return; var reader=new FileReader(); reader.onload=function(){ var text=reader.result; var raw; try{ raw=JSON.parse(text);}catch(_){ raw=text; } try{ state.data=normalize(raw); state.index=0; buildIndex(state.data); renderQuickJump(); var last=restoreSession(); if(last && state.data.nodes[last]) gotoById(last); else render(); } catch(err){ console.error(err); alert('Could not import: '+err.message); } }; reader.readAsText(f); e.target.value=''; });
+
+  // Search UI
+  var timer; function updateResults(){ if(!state.data){ els.results.classList.remove('visible'); return; } var q=els.search.value.trim(); if(!q){ els.results.classList.remove('visible'); render(); return; } var hits=search(q); var frag=document.createDocumentFragment(); hits.slice(0,30).forEach(function(h){ var div=document.createElement('div'); div.className='item'; div.setAttribute('role','option'); div.innerHTML='<div><strong>'+escapeHTML(h.title)+'</strong></div><small>'+escapeHTML(h.snippet)+'</small>'; div.onclick=function(){ gotoById(h.id); els.results.classList.remove('visible'); }; frag.appendChild(div); }); els.results.replaceChildren(frag); els.results.classList.toggle('visible', hits.length>0); render(); }
+  els.search.addEventListener('input',function(){ clearTimeout(timer); timer=setTimeout(updateResults,140); }); els.search.addEventListener('keydown',function(e){ if(e.key==='Enter'){ var first=els.results.querySelector('.item'); if(first) first.click(); }});
+
+  // Keyboard
+  document.addEventListener('keydown',function(e){ if(e.key==='ArrowLeft') step(-1); else if(e.key==='ArrowRight') step(1); else if((e.ctrlKey||e.metaKey) && (e.key.toLowerCase()==='k' || e.key==='/')){ e.preventDefault(); els.search.focus(); } else if((e.ctrlKey||e.metaKey) && e.key==='.') addNote(); else if(e.key.toLowerCase()==='b') toggleBookmark(); else if(e.key.toLowerCase()==='p') togglePalette(); else if(e.key.toLowerCase()==='t') els.layout.classList.toggle('toc-hidden'); else if(e.key.toLowerCase()==='c') { state.compare=!state.compare; render(); } });
+
+  function showHelp(){ alert('Shortcuts:\n\n← / →  Navigate\n/ or Ctrl/Cmd+K  Focus search\nEnter  Open top search result\nB  Toggle bookmark for current section\nP  Toggle tools palette\nT  Toggle sidebar TOC\nC  Toggle compare view\nCtrl/Cmd+.  Add note'); }
+  function toggleTheme(){ var dark=document.documentElement.dataset.theme==='dark'; document.documentElement.dataset.theme=dark?'':'dark'; if(!dark){ document.documentElement.style.setProperty('--bg','#0b0f14'); document.documentElement.style.setProperty('--ink','#e8f0f8'); document.documentElement.style.setProperty('--panel','#0f1a24'); } else { document.documentElement.style.removeProperty('--bg'); document.documentElement.style.removeProperty('--ink'); document.documentElement.style.removeProperty('--panel'); } }
+  function toggleBookmark(){ if(!state.data) return; var id=state.data.sequence[state.index].id; if(state.bookmarks.has(id)) state.bookmarks.delete(id); else state.bookmarks.add(id); saveSession(); alert((state.bookmarks.has(id)?'Added':'Removed')+' bookmark for '+state.data.nodes[id].title); }
+  function showBookmarks(){ if(!state.bookmarks.size) return alert('No bookmarks yet.'); var items=[].concat.apply([], Array.from(state.bookmarks).map(function(id){return state.data.nodes[id]&&state.data.nodes[id].title?state.data.nodes[id].title:id;})).join('\n• '); var go=prompt('Bookmarks (OK to jump).\n\n• '+items+'\n\nType a title fragment to jump:'); if(!go) return; var id2=Array.from(state.bookmarks).find(function(i){var t=state.data.nodes[i]&&state.data.nodes[i].title?state.data.nodes[i].title:''; return t.toLowerCase().indexOf(go.toLowerCase())>=0;}); if(id2) gotoById(id2); }
+
+  window.addEventListener('hashchange', function(){ if(state.data) gotoById((location.hash||'').slice(1)); });
+
+  const SAMPLE = { meta:{title:'United States Constitution (Sample)', source:'Public domain'}, sequence:[ {kind:'preamble', id:'preamble'}, {kind:'article', num:1, section:1, id:'art1-sec1'}, {kind:'article', num:1, section:2, id:'art1-sec2'}, {kind:'amendment', num:1, id:'am1'}, {kind:'amendment', num:2, id:'am2'} ], nodes:{ preamble:{title:'Preamble', text:'We the People of the United States, in Order to form a more perfect Union, establish Justice, insure domestic Tranquility, provide for the common defence, promote the general Welfare, and secure the Blessings of Liberty to ourselves and our Posterity, do ordain and establish this Constitution for the United States of America.'}, 'art1-sec1':{title:'Article I, Section 1', text:'All legislative Powers herein granted shall be vested in a Congress of the United States, which shall consist of a Senate and House of Representatives.'}, 'art1-sec2':{title:'Article I, Section 2', text:'The House of Representatives shall be composed of Members chosen every second Year by the People of the several States...'}, 'am1':{title:'Amendment I', text:'Congress shall make no law respecting an establishment of religion, or prohibiting the free exercise thereof; or abridging the freedom of speech, or of the press; or the right of the people peaceably to assemble, and to petition the Government for a redress of grievances.'}, 'am2':{title:'Amendment II', text:'A well regulated Militia, being necessary to the security of a free State, the right of the people to keep and bear Arms, shall not be infringed.'} } };
+
+  if(!restoreSession()){ state.data=SAMPLE; buildIndex(state.data); renderQuickJump(); render(); }
+})();
+</script>
+</body>
+</html>
